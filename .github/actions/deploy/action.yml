@@ -1,0 +1,65 @@
+name: deploy
+description: Deploy a Smart Contract
+
+inputs:
+  contract_name:
+    required: true
+    type: string
+    description: The name of the contract to deploy
+  constructor_types:
+    required: false
+    type: string
+    description: The types of the constructor arguments
+    default: ""
+  constructor_args:
+    required: false
+    type: string
+    description: The arguments of the constructor
+    default: ""
+  force_deploy:
+    required: false
+    type: boolean
+    description: Whether to force deploy the contract
+    default: false
+  save_deployments:
+    required: false
+    type: boolean
+    description: Whether to save the deployments to a file
+    default: false
+
+outputs:
+  deployed_address:
+    description: The address of the deployed contract
+    value: ${{ steps.deploy-contract.outputs.deployed_address }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: stable
+    - name: Deploy Contract
+      id: deploy-contract
+      run: |
+        FORCE_FLAG=""
+        if [ "${{ inputs.force_deploy }}" == "true" ]; then
+          FORCE_FLAG=" --force"
+        fi
+        DEPLOYED_ADDRESS=$(./script/deploy.sh${FORCE_FLAG} ${{ inputs.contract_name }} ${{ inputs.constructor_types }} ${{ inputs.constructor_args }})
+        echo "deployed_address=$DEPLOYED_ADDRESS" >> $GITHUB_OUTPUT
+      shell: bash
+    - name: Save Deployments
+      if: inputs.save_deployments == 'true'
+      run: |
+        git config user.name "${{ github.actor }}"
+        git config user.email "${{ github.actor }}@users.noreply.github.com"
+        git add deployments.json
+        git diff-index --cached --quiet HEAD || git commit -m "Auto Commit: ${{ inputs.contract_name }} Deployment [skip ci]"
+        git push
+      shell: bash
+        

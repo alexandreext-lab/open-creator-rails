@@ -1,0 +1,48 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      contract_name:
+        description: "Contract to deploy"
+        required: true
+        type: string
+        default: "Counter"
+      force_deploy:
+        description: "Force deploy even if the contract is already deployed"
+        required: false
+        type: boolean
+        default: false
+      constructor_types:
+        description: "Constructor types"
+        required: false
+        type: string
+        default: ""
+      constructor_args:
+        description: "Constructor arguments"
+        required: false
+        type: string
+        default: ""
+      save_deployments:
+        description: "Save deployments (make a commit with changes to deployments.json)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy Contract
+        # Outputs deployed_address
+        uses: ChainSafe/open-creator-rails/.github/actions/deploy@main
+        with:
+          contract_name: ${{ inputs.contract_name }}
+          force_deploy: ${{ inputs.force_deploy }}
+          constructor_types: ${{ inputs.constructor_types }}
+          constructor_args: ${{ inputs.constructor_args }}
+          save_deployments: ${{ inputs.save_deployments }}
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          RPC_URL: ${{ secrets.RPC_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
