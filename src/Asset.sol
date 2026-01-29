@@ -49,28 +49,32 @@ contract Asset is Ownable, IAsset {
         }
         
         IERC20Permit tokenPermit = IERC20Permit(TOKEN_ADDRESS);
-        IERC20 tokenContract = IERC20(TOKEN_ADDRESS);
+        IERC20 tokenContract = IERC20(TOKEN_ADDRESS); 
 
-        try tokenPermit.permit(owner, spender, value, deadline, v, r, s) {
-            bool success = tokenContract.transferFrom(owner, spender, value);
+        try tokenPermit.permit(owner, address(this), value, deadline, v, r, s) {
+            
+            value -= value % SUBSCRIPTION_PRICE;
+
+            bool success = tokenContract.transferFrom(owner, this.owner(), value);
+            
             if (!success) {
                 revert SubscriptionFailed();
-            }   
+            }
         }
         catch {
             revert PermitFailed();
         }
 
         uint256 duration = value / SUBSCRIPTION_PRICE;
-        
+
         subscriptions[owner] = block.timestamp + duration;
-        
+
         emit SubscriptionAdded(owner, subscriptions[owner]);
-        
+
         return true;
     }
 
-    function revokeSubscription(address user) external returns (bool) {
+    function revokeSubscription(address user) external onlyOwner returns (bool) {
         uint256 duration = subscriptions[user];
         if (duration == 0) {
             return false;
