@@ -16,6 +16,7 @@ contract Asset is Ownable, IAsset {
     error InvalidSpender();
     error PermitFailed();
     error SubscriptionFailed();
+    error InsufficientFunds();
 
     event SubscriptionAdded(address indexed user, uint256 expiresAt);
     event SubscriptionRevoked(address indexed user);
@@ -54,6 +55,10 @@ contract Asset is Ownable, IAsset {
         try tokenPermit.permit(owner, address(this), value, deadline, v, r, s) {
             
             value -= value % SUBSCRIPTION_PRICE;
+
+            if (value < SUBSCRIPTION_PRICE) {
+                revert InsufficientFunds();
+            }
 
             bool success = tokenContract.transferFrom(owner, this.owner(), value);
             

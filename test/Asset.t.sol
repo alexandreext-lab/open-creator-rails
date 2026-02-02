@@ -27,11 +27,11 @@ contract AssetTest is Test {
         gameToken.mint(owner, 1000000000000000000000000000000000000000);
     }
 
-    function test_getAssetId() public {
+    function test_getAssetId() public view {
         assertEq(asset.getAssetId(), keccak256(abi.encodePacked(ASSET_ID)));
     }
 
-    function test_getSubscriptionPrice() public {
+    function test_getSubscriptionPrice() public view {
         assertEq(asset.getSubscriptionPrice(10), SUBSCRIPTION_PRICE * 10);
     }
 
