@@ -82,4 +82,11 @@ contract AssetRegistry is Ownable {
         
         return IAsset(asset).subscribe(_owner, _spender, _value, _deadline, _v, _r, _s);
     }
+
+    function revokeSubscription(bytes32 _assetId, address _user) external returns (bool)
+    {
+        address asset = getAsset(_assetId);
+        
+        return IAsset(asset).revokeSubscription(_user);
+    }
 }
