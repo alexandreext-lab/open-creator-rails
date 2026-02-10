@@ -5,12 +5,16 @@ import {IAsset} from "./IAsset.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20Permit} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IRegistry} from "./IRegistry.sol";
+import {ReentrancyGuard} from "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
-contract Asset is Ownable, IAsset {
+contract Asset is Ownable, ReentrancyGuard, IAsset {
     bytes32 internal immutable ASSET_ID;
     uint256 internal immutable SUBSCRIPTION_PRICE;
     address internal immutable TOKEN_ADDRESS;
     address internal immutable REGISTRY_ADDRESS;
+
+    IRegistry internal immutable REGISTRY;
 
     mapping(address => uint256) internal subscriptions;
 
@@ -29,6 +33,7 @@ contract Asset is Ownable, IAsset {
         SUBSCRIPTION_PRICE = _subscriptionPrice;
         TOKEN_ADDRESS = _tokenAddress;
         REGISTRY_ADDRESS = msg.sender;
+        REGISTRY = IRegistry(REGISTRY_ADDRESS);
     }
 
     function getAssetId() external view returns (bytes32) {
@@ -57,7 +62,7 @@ contract Asset is Ownable, IAsset {
         return subscriptions[user] > block.timestamp;
     }
 
-    function subscribe(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external returns (bool) {
+    function subscribe(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external nonReentrant returns (bool) {
 
         if (spender != address(this)) {
             revert InvalidSpender();
@@ -74,8 +79,12 @@ contract Asset is Ownable, IAsset {
                 revert InsufficientFunds();
             }
 
-            bool success = tokenContract.transferFrom(owner, this.owner(), value);
+            uint256 creatorFee = REGISTRY.getCreatorFee(value);
             
+            uint256 registryFee = REGISTRY.getRegistryFee(value);
+
+            bool success = tokenContract.transferFrom(owner, this.owner(), creatorFee) && tokenContract.transferFrom(owner, REGISTRY.getOwner(), registryFee);
+
             if (!success) {
                 revert SubscriptionFailed();
             }

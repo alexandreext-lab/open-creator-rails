@@ -4,16 +4,25 @@ pragma solidity ^0.8.0;
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IAsset} from "./IAsset.sol";
 import {Asset} from "./Asset.sol";
+import {IRegistry} from "./IRegistry.sol";
 
-contract AssetRegistry is Ownable {
+contract AssetRegistry is Ownable, IRegistry {
     mapping(bytes32 => address) public assets;
+
+    uint256 internal creatorFeeShare;
+    uint256 internal registryFeeShare;
+    uint256 internal totalFeeShare;
 
     error AssetAlreadyExists();
     error AssetNotFound();
 
     event AssetCreated(bytes32 indexed assetId, address indexed asset);
 
-    constructor() Ownable(msg.sender) {}
+    constructor(uint256 _creatorFeeShare, uint256 _registryFeeShare) Ownable(msg.sender) {
+        creatorFeeShare = _creatorFeeShare;
+        registryFeeShare = _registryFeeShare;
+        totalFeeShare = creatorFeeShare + registryFeeShare;
+    }
 
     function createAsset(bytes32 _assetId, uint256 _subscriptionPrice, address _tokenAddress, address _owner) external onlyOwner returns (address)
     {
@@ -67,5 +76,27 @@ contract AssetRegistry is Ownable {
         address asset = getAsset(_assetId);
         
         return IAsset(asset).subscribe(_owner, _spender, _value, _deadline, _v, _r, _s);
+    }
+
+    function updateCreatorFeeShare(uint256 _creatorFeeShare) external onlyOwner {
+        creatorFeeShare = _creatorFeeShare;
+        totalFeeShare = creatorFeeShare + registryFeeShare;
+    }
+
+    function updateRegistryFeeShare(uint256 _registryFeeShare) external onlyOwner {
+        registryFeeShare = _registryFeeShare;
+        totalFeeShare = creatorFeeShare + registryFeeShare;
+    }
+
+    function getCreatorFee(uint256 _value) external view returns (uint256) {
+        return (_value * creatorFeeShare) / totalFeeShare;
+    }
+
+    function getRegistryFee(uint256 _value) external view returns (uint256) {
+        return (_value * registryFeeShare) / totalFeeShare;
+    }
+
+    function getOwner() external view returns (address) {
+        return this.owner();
     }
 }
