@@ -5,7 +5,7 @@ import {IAsset} from "./IAsset.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20Permit} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {IRegistry} from "./IRegistry.sol";
+import {IAssetRegistry} from "./IAssetRegistry.sol";
 import {ReentrancyGuard} from "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 contract Asset is Ownable, ReentrancyGuard, IAsset {
@@ -14,7 +14,7 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
     address internal immutable TOKEN_ADDRESS;
     address internal immutable REGISTRY_ADDRESS;
 
-    IRegistry internal immutable REGISTRY;
+    IAssetRegistry internal immutable ASSET_REGISTRY;
 
     mapping(address => uint256) internal subscriptions;
 
@@ -33,7 +33,7 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         SUBSCRIPTION_PRICE = _subscriptionPrice;
         TOKEN_ADDRESS = _tokenAddress;
         REGISTRY_ADDRESS = msg.sender;
-        REGISTRY = IRegistry(REGISTRY_ADDRESS);
+        ASSET_REGISTRY = IAssetRegistry(REGISTRY_ADDRESS);
     }
 
     function getAssetId() external view returns (bytes32) {
@@ -79,11 +79,11 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
                 revert InsufficientFunds();
             }
 
-            uint256 creatorFee = REGISTRY.getCreatorFee(value);
+            uint256 creatorFee = ASSET_REGISTRY.getCreatorFee(value);
             
-            uint256 registryFee = REGISTRY.getRegistryFee(value);
+            uint256 registryFee = ASSET_REGISTRY.getRegistryFee(value);
 
-            bool success = tokenContract.transferFrom(owner, this.owner(), creatorFee) && tokenContract.transferFrom(owner, REGISTRY.getOwner(), registryFee);
+            bool success = tokenContract.transferFrom(owner, this.owner(), creatorFee) && tokenContract.transferFrom(owner, ASSET_REGISTRY.getOwner(), registryFee);
 
             if (!success) {
                 revert SubscriptionFailed();

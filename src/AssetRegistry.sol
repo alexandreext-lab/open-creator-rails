@@ -4,9 +4,9 @@ pragma solidity ^0.8.0;
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IAsset} from "./IAsset.sol";
 import {Asset} from "./Asset.sol";
-import {IRegistry} from "./IRegistry.sol";
+import {IAssetRegistry} from "./IAssetRegistry.sol";
 
-contract AssetRegistry is Ownable, IRegistry {
+contract AssetRegistry is Ownable, IAssetRegistry {
     mapping(bytes32 => address) public assets;
 
     uint256 internal creatorFeeShare;
@@ -37,6 +37,11 @@ contract AssetRegistry is Ownable, IRegistry {
         emit AssetCreated(_assetId, address(asset));
 
         return address(asset);
+    }
+
+    function viewAsset(bytes32 _assetId) external view returns (bool)
+    {
+        return assets[_assetId] != address(0);
     }
 
     function getAsset(bytes32 _assetId) public view returns (address)
