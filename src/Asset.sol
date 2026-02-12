@@ -95,7 +95,9 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
         uint256 duration = value / SUBSCRIPTION_PRICE;
 
-        subscriptions[owner] = block.timestamp + duration;
+        uint256 subscription = subscriptions[owner] > block.timestamp ? subscriptions[owner] : block.timestamp;
+
+        subscriptions[owner] = subscription + duration;
 
         emit SubscriptionAdded(owner, subscriptions[owner]);
 

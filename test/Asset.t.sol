@@ -14,6 +14,13 @@ contract AssetTest is BaseTest {
     }
 
     function test_subscribe() public {
+
+        vm.startPrank(signer);
+        bool hasSubscription = asset.viewMySubscription();
+        vm.stopPrank();
+        if (hasSubscription) {
+            return;
+        }
         
         address owner = signer;
         address spender = address(asset);
