@@ -19,9 +19,7 @@ contract AssetRegistry is Ownable, IAssetRegistry {
     error AssetAlreadyExists();
     error AssetNotFound();
 
-    event AssetCreated(bytes32 indexed assetId, address indexed asset, uint256 indexed subscriptionPrice, address indexed tokenAddress, address indexed owner);
-    event CreatorFeeShareUpdated(uint256 indexed creatorFeeShare);
-    event RegistryFeeShareUpdated(uint256 indexed registryFeeShare);
+    event AssetCreated(bytes32 indexed assetId, address indexed asset, uint256 subscriptionPrice, address tokenAddress, address indexed owner);
 
     /// @notice Initializes the registry with fee shares. Caller becomes owner.
     /// @param _creatorFeeShare Share of subscription payments allocated to asset creators.
@@ -122,13 +120,11 @@ contract AssetRegistry is Ownable, IAssetRegistry {
     function updateCreatorFeeShare(uint256 _creatorFeeShare) external onlyOwner {
         creatorFeeShare = _creatorFeeShare;
         totalFeeShare = creatorFeeShare + registryFeeShare;
-        emit CreatorFeeShareUpdated(creatorFeeShare);
     }
 
     function updateRegistryFeeShare(uint256 _registryFeeShare) external onlyOwner {
         registryFeeShare = _registryFeeShare;
         totalFeeShare = creatorFeeShare + registryFeeShare;
-        emit RegistryFeeShareUpdated(registryFeeShare);
     }
 
     function getCreatorFee(uint256 _value) external view returns (uint256) {
