@@ -26,10 +26,10 @@ contract AssetRegistryScript is DeployScript {
     }
 
     /// @notice Creates a new asset in the registry (registry owner only).
-    /// @dev Usage: ./script/run.sh AssetRegistry "createAsset(string,uint256)" "<assetId>" <subscriptionPrice>
-    function createAsset(string memory _assetId, uint256 _subscriptionPrice) public {
+    /// @dev Usage: ./script/run.sh AssetRegistry "createAsset(string,uint256,address,address)" "<assetId>" <subscriptionPrice> <tokenAddress> <owner>
+    function createAsset(string memory _assetId, uint256 _subscriptionPrice, address _tokenAddress, address _owner) public {
         vm.startBroadcast();
-        address asset = assetRegistry.createAsset(keccak256(abi.encodePacked(_assetId)), _subscriptionPrice, address(gameToken), msg.sender);
+        address asset = assetRegistry.createAsset(keccak256(abi.encodePacked(_assetId)), _subscriptionPrice, _tokenAddress, _owner);
         console.log(string.concat(_assetId, " Asset created: ", vm.toString(asset)));     
         vm.stopBroadcast();
     }
