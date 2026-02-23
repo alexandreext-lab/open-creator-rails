@@ -91,7 +91,7 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         return subscriptions[user] > block.timestamp;
     }
 
-    function subscribe(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external nonReentrant returns (bool) {
+    function subscribe(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external nonReentrant returns (uint256) {
 
         if (spender != address(this)) {
             revert InvalidSpender();
@@ -123,11 +123,13 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
         uint256 subscription = subscriptions[owner] > block.timestamp ? subscriptions[owner] : block.timestamp;
 
-        subscriptions[owner] = subscription + duration;
+         subscription += duration;
 
-        emit SubscriptionAdded(owner, subscriptions[owner]);
+         subscriptions[owner] = subscription;
 
-        return true;
+        emit SubscriptionAdded(owner, subscription);
+
+        return subscription;
     }
 
     function revokeSubscription(address user) external onlyOwner returns (bool) {

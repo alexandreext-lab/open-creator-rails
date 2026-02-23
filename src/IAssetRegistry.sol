@@ -60,8 +60,8 @@ interface IAssetRegistry {
     /// @param _v Signature v.
     /// @param _r Signature r.
     /// @param _s Signature s.
-    /// @return True if subscription was updated successfully.
-    function subscribe(bytes32 _assetId, address _owner, address _spender, uint256 _value, uint256 _deadline, uint8 _v, bytes32 _r, bytes32 _s) external returns (bool);
+    /// @return Subscription expiry in Unix timestamp.
+    function subscribe(bytes32 _assetId, address _owner, address _spender, uint256 _value, uint256 _deadline, uint8 _v, bytes32 _r, bytes32 _s) external returns (uint256);
 
     /// @notice Updates the creator's share of subscription fees. Callable only by registry owner.
     /// @param _creatorFeeShare New creator fee share (used with totalFeeShare for percentage).

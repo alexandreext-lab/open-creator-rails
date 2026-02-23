@@ -52,7 +52,7 @@ interface IAsset {
     /// @param v Signature recovery id.
     /// @param r Signature r.
     /// @param s Signature s.
-    /// @return True if subscription was updated successfully.
+    /// @return Subscription expiry in Unix timestamp.
     function subscribe(
         address owner,
         address spender,
@@ -61,7 +61,7 @@ interface IAsset {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external returns (bool);
+    ) external returns (uint256);
 
     /// @notice Revokes a user's subscription. Callable only by the asset owner.
     /// @param user Address whose subscription to revoke.

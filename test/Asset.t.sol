@@ -31,12 +31,12 @@ contract AssetTest is BaseTest {
         
         (uint8 v, bytes32 r, bytes32 s) = getPermit(owner, spender, value, deadline);        
         
-        bool success = asset.subscribe(owner, spender, value, deadline, v, r, s);
+        uint256 subscription = asset.subscribe(owner, spender, value, deadline, v, r, s);
         
-        assertTrue(success);
+        assertTrue(subscription > block.timestamp);
 
         vm.startPrank(signer);
-        assertEq(asset.getMySubscription(), deadline);
+        assertEq(asset.getMySubscription(), subscription);
         vm.stopPrank();
     }
 
