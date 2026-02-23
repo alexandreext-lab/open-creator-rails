@@ -9,6 +9,14 @@ contract AssetTest is BaseTest {
         assertEq(asset.getAssetId(), ASSET_ID);
     }
 
+    function test_getRegistryAddress() public view {
+        assertEq(asset.getRegistryAddress(), address(assetRegistry));
+    }
+
+    function test_getTokenAddress() public view {
+        assertEq(asset.getTokenAddress(), address(testToken));
+    }
+
     function test_getSubscriptionPrice() public view {
         assertEq(asset.getSubscriptionPrice(10), SUBSCRIPTION_PRICE * 10);
     }

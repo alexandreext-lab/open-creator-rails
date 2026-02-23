@@ -98,4 +98,24 @@ contract AssetRegistryTest is BaseTest {
         assertEq(assetRegistry.getCreatorFee(100000000), 80000000);
         assertEq(assetRegistry.getRegistryFee(100000000), 20000000);
     }
+
+    function test_updateCreatorFeeShare_emitsEvent() public {
+        vm.startPrank(registryOwner);
+
+        vm.expectEmit(true, true, true, true);
+        emit AssetRegistry.CreatorFeeShareUpdated(80);
+        assetRegistry.updateCreatorFeeShare(80);
+
+        vm.stopPrank();
+    }
+
+    function test_updateRegistryFeeShare_emitsEvent() public {
+        vm.startPrank(registryOwner);
+
+        vm.expectEmit(true, true, true, true);
+        emit AssetRegistry.RegistryFeeShareUpdated(20);
+        assetRegistry.updateRegistryFeeShare(20);
+
+        vm.stopPrank();
+    }
 }
