@@ -2,14 +2,14 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
-import {GameToken} from "../src/GameToken.sol";
+import {TestToken} from "../src/TestToken.sol";
 import {IAsset} from "../src/IAsset.sol";
 import {IAssetRegistry} from "../src/IAssetRegistry.sol";
 import {AssetRegistry} from "../src/AssetRegistry.sol";
 
 contract BaseTest is Test {
 
-    GameToken internal gameToken;
+    TestToken internal testToken;
     IAsset internal asset;
     IAssetRegistry internal assetRegistry;
 
@@ -29,32 +29,32 @@ contract BaseTest is Test {
     uint256 internal key;
 
     function setUp() public virtual {
-        gameToken = new GameToken();
+        testToken = new TestToken();
 
         key = vm.deriveKey(MNEMONIC, 0);
         signer = vm.addr(key);
 
         vm.startPrank(signer);
 
-        gameToken.mint(signer, 1000000000000000000000000000000000000000);
+        testToken.mint(signer, 1000000000000000000000000000000000000000);
 
         registryOwner = address(1);
         assetOwner = address(2);
 
         vm.startPrank(registryOwner);
         assetRegistry = new AssetRegistry(70, 30);
-        asset = IAsset(assetRegistry.createAsset(ASSET_ID, SUBSCRIPTION_PRICE, address(gameToken), assetOwner));
+        asset = IAsset(assetRegistry.createAsset(ASSET_ID, SUBSCRIPTION_PRICE, address(testToken), assetOwner));
         vm.stopPrank();
     }
 
     function getPermit(address owner, address spender, uint256 value, uint256 deadline) public view returns (uint8 v, bytes32 r, bytes32 s) {
         
-        uint256 nonce = gameToken.nonces(owner);
+        uint256 nonce = testToken.nonces(owner);
 
         bytes32 hash = keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonce, deadline));
 
         bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", gameToken.DOMAIN_SEPARATOR(), hash)
+            abi.encodePacked("\x19\x01", testToken.DOMAIN_SEPARATOR(), hash)
         );
 
         (v, r, s) = vm.sign(key, digest);

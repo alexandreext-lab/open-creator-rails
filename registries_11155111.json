@@ -1,0 +1,18 @@
+[
+  {
+    "address": "0xD9f49023d676F21f8EFf14f5060970dfDA1Fd9FE",
+    "creatorFeeShare": 70,
+    "registryFeeShare": 30,
+    "owner": "0xf11B7A2B2D457Bc666310BF76F859b48AcDE5F3e",
+    "assets": [
+      {
+        "address": "0xb93e053593cd89314549118ec4ea8f05410cc704",
+        "assetId": "default_asset_id",
+        "assetIdHash": "0x973fa65fcf47830442fffbe790bfa4161c5efc1834fb2e63c64429c74cf61805",
+        "subscriptionPrice": 4,
+        "tokenAddress": "0x80436643ce2aE5F26371D7159f803935475727f0",
+        "owner": "0xFDA455DEff45bB92E79E705FDEc698c32a952aDE"
+      }
+    ]
+  }
+]

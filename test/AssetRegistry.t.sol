@@ -22,7 +22,7 @@ contract AssetRegistryTest is BaseTest {
         }
 
         vm.startPrank(registryOwner);
-        asset = IAsset(assetRegistry.createAsset(ASSET_ID, SUBSCRIPTION_PRICE, address(gameToken), assetOwner));
+        asset = IAsset(assetRegistry.createAsset(ASSET_ID, SUBSCRIPTION_PRICE, address(testToken), assetOwner));
         vm.stopPrank();
         
         assertEq(asset.getAssetId(), ASSET_ID);

@@ -14,7 +14,7 @@ SIGNATURE=$2
 
 shift 2
 
-OUTPUT=$(forge script script/$FILE_NAME.s.sol:$SCRIPT_NAME $@ --sig "$SIGNATURE" --rpc-url $RPC_URL --broadcast --private-key $PRIVATE_KEY)
+OUTPUT=$(forge script script/$FILE_NAME.s.sol:$SCRIPT_NAME $@ --sig "$SIGNATURE" --rpc-url $RPC_URL --broadcast --private-key $PRIVATE_KEY --json)
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then

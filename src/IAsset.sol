@@ -13,6 +13,10 @@ interface IAsset {
     /// @return The registry address.
     function getRegistryAddress() external view returns (address);
 
+    /// @notice Returns the address of the token contract used for subscription payments.
+    /// @return The token contract address. Must be an ERC20 with permit.
+    function getTokenAddress() external view returns (address);
+
     /// @notice Returns the total price for a subscription of the given duration.
     /// @param duration Length of the subscription in seconds.
     /// @return Total price for the duration.
