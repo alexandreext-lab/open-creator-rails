@@ -31,12 +31,12 @@ contract AssetTest is BaseTest {
         
         (uint8 v, bytes32 r, bytes32 s) = getPermit(owner, spender, value, deadline);        
         
-        bool success = asset.subscribe(owner, spender, value, deadline, v, r, s);
+        uint256 subscription = asset.subscribe(owner, spender, value, deadline, v, r, s);
         
-        assertTrue(success);
+        assertTrue(subscription > block.timestamp);
 
         vm.startPrank(signer);
-        assertEq(asset.getMySubscription(), deadline);
+        assertEq(asset.getMySubscription(), subscription);
         vm.stopPrank();
     }
 
@@ -83,8 +83,8 @@ contract AssetTest is BaseTest {
     }
 
     function test_feeSplit() public {
-        uint256 creatorBalance = gameToken.balanceOf(assetOwner);
-        uint256 registryBalance = gameToken.balanceOf(registryOwner);
+        uint256 creatorBalance = testToken.balanceOf(assetOwner);
+        uint256 registryBalance = testToken.balanceOf(registryOwner);
         
         test_subscribe();
 
@@ -93,7 +93,7 @@ contract AssetTest is BaseTest {
         uint256 creatorFee = assetRegistry.getCreatorFee(value);
         uint256 registryFee = assetRegistry.getRegistryFee(value);
 
-        assertEq(gameToken.balanceOf(assetOwner), creatorBalance + creatorFee);
-        assertEq(gameToken.balanceOf(registryOwner), registryBalance + registryFee);
+        assertEq(testToken.balanceOf(assetOwner), creatorBalance + creatorFee);
+        assertEq(testToken.balanceOf(registryOwner), registryBalance + registryFee);
     }
 }

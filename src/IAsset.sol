@@ -13,6 +13,10 @@ interface IAsset {
     /// @return The registry address.
     function getRegistryAddress() external view returns (address);
 
+    /// @notice Returns the address of the token contract used for subscription payments.
+    /// @return The token contract address. Must be an ERC20 with permit.
+    function getTokenAddress() external view returns (address);
+
     /// @notice Returns the total price for a subscription of the given duration.
     /// @param duration Length of the subscription in seconds.
     /// @return Total price for the duration.
@@ -48,7 +52,7 @@ interface IAsset {
     /// @param v Signature recovery id.
     /// @param r Signature r.
     /// @param s Signature s.
-    /// @return True if subscription was updated successfully.
+    /// @return Subscription expiry in Unix timestamp.
     function subscribe(
         address owner,
         address spender,
@@ -57,7 +61,7 @@ interface IAsset {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external returns (bool);
+    ) external returns (uint256);
 
     /// @notice Revokes a user's subscription. Callable only by the asset owner.
     /// @param user Address whose subscription to revoke.

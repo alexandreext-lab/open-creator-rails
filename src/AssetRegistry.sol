@@ -112,7 +112,7 @@ contract AssetRegistry is Ownable, IAssetRegistry {
         return IAsset(asset).getSubscriptionPrice(_duration);
     }
 
-    function subscribe(bytes32 _assetId, address _owner, address _spender, uint256 _value, uint256 _deadline, uint8 _v, bytes32 _r, bytes32 _s) external returns (bool)
+    function subscribe(bytes32 _assetId, address _owner, address _spender, uint256 _value, uint256 _deadline, uint8 _v, bytes32 _r, bytes32 _s) external returns (uint256)
     {
         address asset = getAsset(_assetId);
         

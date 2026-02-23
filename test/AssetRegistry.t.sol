@@ -22,7 +22,7 @@ contract AssetRegistryTest is BaseTest {
         }
 
         vm.startPrank(registryOwner);
-        asset = IAsset(assetRegistry.createAsset(ASSET_ID, SUBSCRIPTION_PRICE, address(gameToken), assetOwner));
+        asset = IAsset(assetRegistry.createAsset(ASSET_ID, SUBSCRIPTION_PRICE, address(testToken), assetOwner));
         vm.stopPrank();
         
         assertEq(asset.getAssetId(), ASSET_ID);
@@ -46,12 +46,12 @@ contract AssetRegistryTest is BaseTest {
 
         (uint8 v, bytes32 r, bytes32 s) = getPermit(owner, spender, value, deadline);        
 
-        bool success = assetRegistry.subscribe(ASSET_ID, owner, spender, value, deadline, v, r, s);
+        uint256 subscription = assetRegistry.subscribe(ASSET_ID, owner, spender, value, deadline, v, r, s);
         
-        assertTrue(success);
+        assertTrue(subscription > block.timestamp);
 
         vm.startPrank(signer);
-        assertEq(asset.getMySubscription(), deadline);
+        assertEq(asset.getMySubscription(), subscription);
         vm.stopPrank();
     }
 

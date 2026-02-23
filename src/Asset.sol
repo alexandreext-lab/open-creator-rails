@@ -13,11 +13,14 @@ import {ReentrancyGuard} from "lib/openzeppelin-contracts/contracts/utils/Reentr
 ///         Deployed by the asset registry; subscription revenue is split between creator (owner) and registry.
 contract Asset is Ownable, ReentrancyGuard, IAsset {
     bytes32 internal immutable ASSET_ID;
-    address internal immutable TOKEN_ADDRESS;
     address internal immutable REGISTRY_ADDRESS;
 
     IAssetRegistry internal immutable ASSET_REGISTRY;
-    
+
+    address internal immutable TOKEN_ADDRESS;
+    IERC20 internal immutable TOKEN_CONTRACT;
+    IERC20Permit internal immutable TOKEN_PERMIT_CONTRACT;
+
     mapping(address => uint256) internal subscriptions;
     uint256 internal subscriptionPrice;
 
@@ -39,7 +42,12 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
     constructor(bytes32 _assetId, uint256 _subscriptionPrice, address _tokenAddress, address _owner) Ownable(_owner) {
         ASSET_ID = _assetId;
         subscriptionPrice = _subscriptionPrice;
+
         TOKEN_ADDRESS = _tokenAddress;
+
+        TOKEN_CONTRACT = IERC20(TOKEN_ADDRESS);
+        TOKEN_PERMIT_CONTRACT = IERC20Permit(TOKEN_ADDRESS);
+
         REGISTRY_ADDRESS = msg.sender;
         ASSET_REGISTRY = IAssetRegistry(REGISTRY_ADDRESS);
     }
@@ -50,6 +58,10 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
     function getRegistryAddress() external view returns (address) {
         return REGISTRY_ADDRESS;
+    }
+
+    function getTokenAddress() external view returns (address) {
+        return TOKEN_ADDRESS;
     }
 
     function setSubscriptionPrice(uint256 newSubscriptionPrice) external onlyOwner {
@@ -79,16 +91,13 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         return subscriptions[user] > block.timestamp;
     }
 
-    function subscribe(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external nonReentrant returns (bool) {
+    function subscribe(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external nonReentrant returns (uint256) {
 
         if (spender != address(this)) {
             revert InvalidSpender();
         }
         
-        IERC20Permit tokenPermit = IERC20Permit(TOKEN_ADDRESS);
-        IERC20 tokenContract = IERC20(TOKEN_ADDRESS); 
-
-        try tokenPermit.permit(owner, address(this), value, deadline, v, r, s) {
+        try TOKEN_PERMIT_CONTRACT.permit(owner, address(this), value, deadline, v, r, s) {
             
             value -= value % subscriptionPrice;
 
@@ -100,7 +109,7 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
             
             uint256 registryFee = ASSET_REGISTRY.getRegistryFee(value);
 
-            bool success = tokenContract.transferFrom(owner, this.owner(), creatorFee) && tokenContract.transferFrom(owner, ASSET_REGISTRY.getOwner(), registryFee);
+            bool success = TOKEN_CONTRACT.transferFrom(owner, this.owner(), creatorFee) && TOKEN_CONTRACT.transferFrom(owner, ASSET_REGISTRY.getOwner(), registryFee);
 
             if (!success) {
                 revert SubscriptionFailed();
@@ -114,11 +123,13 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
         uint256 subscription = subscriptions[owner] > block.timestamp ? subscriptions[owner] : block.timestamp;
 
-        subscriptions[owner] = subscription + duration;
+         subscription += duration;
 
-        emit SubscriptionAdded(owner, subscriptions[owner]);
+         subscriptions[owner] = subscription;
 
-        return true;
+        emit SubscriptionAdded(owner, subscription);
+
+        return subscription;
     }
 
     function revokeSubscription(address user) external onlyOwner returns (bool) {

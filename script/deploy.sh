@@ -6,79 +6,19 @@ fi
 
 source ./script/utils.sh
 
-# Parse flags
-FORCE_DEPLOY=false
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        -f|--force)
-            FORCE_DEPLOY=true
-            shift
-            ;;
-        *)
-            break
-            ;;
-    esac
-done
+contract_name=$1
 
-CONTRACT_NAME=$1
-CONSTRUCTOR_TYPES=${2:-""}
+shift 1
 
-if [ -z "$CONSTRUCTOR_TYPES" ]; then
-    shift 1
-else
-    shift 2
+constructor_args=""
+
+if [ $# -gt 0 ]; then
+    constructor_args="--constructor-args $@"
 fi
 
-DEPLOYMENTS_FILE="deployments.json"
-
-if [ -f "$DEPLOYMENTS_FILE" ] && [ "$FORCE_DEPLOY" = false ]; then
-    DEPLOYED_ADDRESS=$(jq -r --arg name "$CONTRACT_NAME" '.[$name]' "$DEPLOYMENTS_FILE")
-    if [ ! -z "$DEPLOYED_ADDRESS" ]; then
-        # Rebuild the contract to get the latest bytecode
-        BUILD_OUTPUT=$(forge build 2>&1)
-        if [ $? -ne 0 ]; then
-            echo "$BUILD_OUTPUT" >&2
-            exit 1
-        fi
-        # Get bytecode
-        BYTECODE=$(forge inspect $CONTRACT_NAME deployedBytecode)
-        # Get deployed bytecode
-        DEPLOYED_BYTECODE=$(cast code $DEPLOYED_ADDRESS --rpc-url $RPC_URL)
-        
-        DEPLOYED_BYTECODE=$(echo "$DEPLOYED_BYTECODE" | tr 'A-F' 'a-f')
-        BYTECODE=$(echo "$BYTECODE" | tr 'A-F' 'a-f')
-
-        # Compare bytecodes
-        if [ "$BYTECODE" == "$DEPLOYED_BYTECODE" ]; then
-            echo "$DEPLOYED_ADDRESS"
-            exit 0
-        fi
-    fi
-fi
-
-OUTPUT=$(./script/run.sh Deploy "deploy(string,bytes)" "$CONTRACT_NAME" $(cast abi-encode "constructor($CONSTRUCTOR_TYPES)" $@))
+forge create --rpc-url $RPC_URL --private-key $PRIVATE_KEY src/$contract_name.sol:$contract_name --broadcast --json $constructor_args
 EXIT_CODE=$?
 
-# Check if deploy.sh failed
 if [ $EXIT_CODE -ne 0 ]; then
-    exit $EXIT_CODE
+    return $EXIT_CODE 2>/dev/null || exit $EXIT_CODE
 fi
-
-DEPLOYED_ADDRESS=$(echo "$OUTPUT" | awk '/deployedAddress: address/ {print $3}')
-
-# Check if we successfully extracted an address
-if [ -z "$DEPLOYED_ADDRESS" ]; then
-    echo "Error: Failed to extract deployedAddress" >&2
-    exit 1
-fi
-
-# Create DEPLOYMENTS_FILE if it doesn't exist
-if [ ! -f "$DEPLOYMENTS_FILE" ]; then
-    echo "{}" > "$DEPLOYMENTS_FILE"
-fi
-
-# Update deployments.json with the contract name and address
-jq --arg name "$CONTRACT_NAME" --arg address "$DEPLOYED_ADDRESS" '. + {($name): $address}' "$DEPLOYMENTS_FILE" > "${DEPLOYMENTS_FILE}.tmp" && mv "${DEPLOYMENTS_FILE}.tmp" "$DEPLOYMENTS_FILE"
-
-# Print/return the deployed address
-echo "$DEPLOYED_ADDRESS"
