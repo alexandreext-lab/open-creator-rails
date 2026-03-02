@@ -193,19 +193,25 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         
         uint256 claimable = 0;
 
-        for (uint256 i = 0; i < nonce; i++) {
+        for (uint256 i = 0; i < nonce + 1; i++) {
             
             bytes32 id = _hash(subscriber, i);
             
             Subscription memory subscription = subscriptions[id];
 
-            uint256 endTime = Math.min(subscription.endTime, block.timestamp);
-
-            if (claimedAt >= endTime) {
-                continue;    
+            // If the subscription has not started yet, break the loop since all subsequent subscriptions will also not have started yet
+            if (subscription.startTime >= block.timestamp) {
+                break;
             }
-            
+
+            // If the subscription has already been claimed, continue to the next subscription
+            if (subscription.endTime <= claimedAt) {
+                continue;
+            }
+
             uint256 startTime = Math.max(subscription.startTime, claimedAt);
+
+            uint256 endTime = Math.min(subscription.endTime, block.timestamp);
 
             claimable += (endTime - startTime) * subscription.subscriptionPrice;
         }
@@ -219,7 +225,7 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         
         creatorFee = ASSET_REGISTRY.getCreatorFee(claimable);
         
-        bool success = TOKEN_CONTRACT.transferFrom(address(this), owner(), creatorFee);
+        bool success = TOKEN_CONTRACT.transfer(owner(), creatorFee);
 
         if (!success) {
             revert CreatorClaimFailed();
@@ -238,7 +244,7 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
         registryFee = ASSET_REGISTRY.getRegistryFee(claimable);
 
-        bool success = TOKEN_CONTRACT.transferFrom(address(this), ASSET_REGISTRY.getOwner(), registryFee);
+        bool success = TOKEN_CONTRACT.transfer(ASSET_REGISTRY.getOwner(), registryFee);
         
         if (!success) {
             revert RegistryClaimFailed();

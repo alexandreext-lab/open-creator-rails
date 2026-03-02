@@ -50,6 +50,9 @@ contract AssetTest is BaseTest {
         vm.startPrank(signer);
         assertEq(asset.getMySubscription(), subscription);
         vm.stopPrank();
+
+        uint256 assetBalance = testToken.balanceOf(address(asset));
+        assertEq(assetBalance, value);
     }
 
     function test_setSubscriptionPrice() public {
@@ -170,9 +173,25 @@ contract AssetTest is BaseTest {
         
         test_subscribe();
 
-        uint256 value = SUBSCRIPTION_PRICE * DURATION;
+        uint256 value = asset.getSubscriptionPrice(DURATION);
 
         (uint256 creatorFee, uint256 registryFee) = assetRegistry.getFees(value);
+
+        vm.startPrank(signer);
+        uint256 subscriptionEndTime = asset.getMySubscription();
+        vm.warp(subscriptionEndTime);
+        vm.stopPrank();
+
+        vm.startPrank(assetOwner);
+        uint256 claimedCreatorFee = asset.claimCreatorFee(signer);
+        vm.stopPrank();
+
+        vm.startPrank(address(assetRegistry));
+        uint256 claimedRegistryFee = asset.claimRegistryFee(signer);
+        vm.stopPrank();
+
+        assertEq(claimedCreatorFee, creatorFee);
+        assertEq(claimedRegistryFee, registryFee);
 
         assertEq(testToken.balanceOf(assetOwner), creatorBalance + creatorFee);
         assertEq(testToken.balanceOf(registryOwner), registryBalance + registryFee);
