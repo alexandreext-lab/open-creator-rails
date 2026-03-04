@@ -73,14 +73,14 @@ contract AssetRegistryTest is BaseTest {
         assertEq(assetRegistry.getMySubscription(ASSET_ID), subscription);
     }
 
-    function test_viewSubscription() public {
+    function test_isMySubscriptionActive() public {
         test_createAsset();
         vm.prank(signer);
-        assertFalse(assetRegistry.viewMySubscription(ASSET_ID));
+        assertFalse(assetRegistry.isMySubscriptionActive(ASSET_ID));
 
         test_subscribe();
         vm.prank(signer);
-        assertTrue(assetRegistry.viewMySubscription(ASSET_ID));
+        assertTrue(assetRegistry.isMySubscriptionActive(ASSET_ID));
     }
 
     function test_getSubscription() public {
@@ -150,6 +150,29 @@ contract AssetRegistryTest is BaseTest {
         assetRegistry.createAsset(ASSET_ID, SUBSCRIPTION_PRICE, address(testToken), address(0));
     }
 
+    function test_constructor_zeroTotalFeeShare() public {
+        vm.expectRevert(AssetRegistry.ZeroTotalFeeShare.selector);
+        new AssetRegistry(0, 0);
+    }
+
+    function test_updateCreatorFeeShare_zeroTotalFeeShare() public {
+        vm.prank(registryOwner);
+        assetRegistry.updateRegistryFeeShare(0);
+
+        vm.prank(registryOwner);
+        vm.expectRevert(AssetRegistry.ZeroTotalFeeShare.selector);
+        assetRegistry.updateCreatorFeeShare(0);
+    }
+
+    function test_updateRegistryFeeShare_zeroTotalFeeShare() public {
+        vm.prank(registryOwner);
+        assetRegistry.updateCreatorFeeShare(0);
+
+        vm.prank(registryOwner);
+        vm.expectRevert(AssetRegistry.ZeroTotalFeeShare.selector);
+        assetRegistry.updateRegistryFeeShare(0);
+    }
+
     function test_createAsset_invalidTokenAddress() public {
         vm.prank(registryOwner);
         vm.expectRevert(Asset.InvalidTokenAddress.selector);
@@ -191,20 +214,20 @@ contract AssetRegistryTest is BaseTest {
         assetRegistry.updateRegistryFeeShare(20);
     }
 
-    function test_viewSubscription_withUser_ownerCanCall() public {
+    function test_isSubscriptionActive_withUser_ownerCanCall() public {
         test_createAsset();
         test_subscribe();
 
         vm.startPrank(registryOwner);
-        assertTrue(assetRegistry.viewSubscription(ASSET_ID, signer));
+        assertTrue(assetRegistry.isSubscriptionActive(ASSET_ID, signer));
         vm.stopPrank();
     }
 
-    function test_viewSubscription_withUser_unauthorized() public {
+    function test_isSubscriptionActive_withUser_unauthorized() public {
         test_createAsset();
         vm.prank(UNAUTHORIZED);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, UNAUTHORIZED));
-        assetRegistry.viewSubscription(ASSET_ID, signer);
+        assetRegistry.isSubscriptionActive(ASSET_ID, signer);
     }
 
     function test_getSubscription_withUser_ownerCanCall() public {
@@ -255,6 +278,51 @@ contract AssetRegistryTest is BaseTest {
         assetRegistry.claimRegistryFee(ASSET_ID, signer);
 
         assertEq(testToken.balanceOf(registryOwner), tokenBalance + registryFee);
+    }
+
+    function test_claimRegistryFee_multiple_creatorFeeShare() public {
+        
+        (, uint256 registryFeeShare, uint256 totalFeeShare) = assetRegistry.getFeeShares();
+        uint256 tokenBalance = testToken.balanceOf(registryOwner);
+
+        _subscribe(DURATION);
+
+        vm.prank(registryOwner);
+        assetRegistry.updateCreatorFeeShare(60);
+
+        uint256 endTime = _subscribe(DURATION);
+
+        uint256 value = assetRegistry.getSubscriptionPrice(ASSET_ID, DURATION);
+        uint256 registryFee = assetRegistry.getRegistryFee(value) + ((value * registryFeeShare) / totalFeeShare);
+        vm.warp(endTime);
+
+        vm.prank(registryOwner);
+        uint256 claimedRegistryFee = assetRegistry.claimRegistryFee(ASSET_ID, signer);
+
+        assertEq(claimedRegistryFee, registryFee);
+        assertEq(testToken.balanceOf(registryOwner), tokenBalance + claimedRegistryFee);
+    }
+
+    function test_claimRegistryFee_multiple_registryFeeShare() public {
+        (, uint256 registryFeeShare, uint256 totalFeeShare) = assetRegistry.getFeeShares();
+        uint256 tokenBalance = testToken.balanceOf(registryOwner);
+
+        _subscribe(DURATION);
+
+        vm.prank(registryOwner);
+        assetRegistry.updateRegistryFeeShare(50);
+
+        uint256 endTime = _subscribe(DURATION);
+
+        uint256 value = assetRegistry.getSubscriptionPrice(ASSET_ID, DURATION);
+        uint256 registryFee = assetRegistry.getRegistryFee(value) + ((value * registryFeeShare) / totalFeeShare);
+        vm.warp(endTime);
+
+        vm.prank(registryOwner);
+        uint256 claimedRegistryFee = assetRegistry.claimRegistryFee(ASSET_ID, signer);
+
+        assertEq(claimedRegistryFee, registryFee);
+        assertEq(testToken.balanceOf(registryOwner), tokenBalance + claimedRegistryFee);
     }
 
     function test_claimRegistryFee_multiple_subscriptionPrice() public {

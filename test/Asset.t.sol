@@ -19,7 +19,8 @@ contract AssetTest is BaseTest {
     }
 
     function test_getSubscriptionPrice() public view {
-        assertEq(asset.getSubscriptionPrice(10), SUBSCRIPTION_PRICE * 10);
+        uint256 expectedPrice = SUBSCRIPTION_PRICE * 10;
+        assertEq(asset.getSubscriptionPrice(10), expectedPrice);
     }
 
     function _subscribe(uint256 duration) internal returns (uint256 subscription) {
@@ -38,8 +39,9 @@ contract AssetTest is BaseTest {
     }
 
     function test_subscribe() public {
-        uint256 tokenBalance = testToken.balanceOf(signer);
-        uint256 value = asset.getSubscriptionPrice(DURATION);
+        uint256 expectedFee = SUBSCRIPTION_PRICE * DURATION;
+        uint256 signerBalanceBefore = testToken.balanceOf(signer);
+        uint256 assetBalanceBefore = testToken.balanceOf(address(asset));
 
         vm.expectEmit(true, true, true, true);
         emit Asset.SubscriptionAdded(signer, block.timestamp, block.timestamp + DURATION, 0);
@@ -49,8 +51,8 @@ contract AssetTest is BaseTest {
         assertTrue(subscription > block.timestamp);
         vm.prank(signer);
         assertEq(asset.getMySubscription(), subscription);
-        assertEq(testToken.balanceOf(address(asset)), value);
-        assertEq(testToken.balanceOf(signer), tokenBalance - value);
+        assertEq(testToken.balanceOf(address(asset)), assetBalanceBefore + expectedFee, "Asset should receive expected fee");
+        assertEq(testToken.balanceOf(signer), signerBalanceBefore - expectedFee, "Signer balance should decrease by expected fee");
     }
 
     function test_subscribe_multiple() public {
@@ -173,6 +175,51 @@ contract AssetTest is BaseTest {
         assertEq(testToken.balanceOf(assetOwner), tokenBalance + claimedCreatorFee);
     }
 
+    function test_claimCreatorFee_multiple_creatorFeeShare() public {
+        
+        (, uint256 registryFeeShare, uint256 totalFeeShare) = assetRegistry.getFeeShares();
+        uint256 tokenBalance = testToken.balanceOf(assetOwner);
+
+        _subscribe(DURATION);
+
+        vm.prank(registryOwner);
+        assetRegistry.updateCreatorFeeShare(60);
+
+        uint256 endTime = _subscribe(DURATION);
+
+        uint256 value = asset.getSubscriptionPrice(DURATION);
+        uint256 creatorFee = assetRegistry.getCreatorFee(value) + (value - ((value * registryFeeShare) / totalFeeShare));
+        vm.warp(endTime);
+
+        vm.prank(assetOwner);
+        uint256 claimedCreatorFee = asset.claimCreatorFee(signer);
+
+        assertEq(claimedCreatorFee, creatorFee);
+        assertEq(testToken.balanceOf(assetOwner), tokenBalance + claimedCreatorFee);
+    }
+
+    function test_claimCreatorFee_multiple_registryFeeShare() public {
+        (, uint256 registryFeeShare, uint256 totalFeeShare) = assetRegistry.getFeeShares();
+        uint256 tokenBalance = testToken.balanceOf(assetOwner);
+
+        _subscribe(DURATION);
+
+        vm.prank(registryOwner);
+        assetRegistry.updateRegistryFeeShare(50);
+
+        uint256 endTime = _subscribe(DURATION);
+
+        uint256 value = asset.getSubscriptionPrice(DURATION);
+        uint256 creatorFee = assetRegistry.getCreatorFee(value) + (value - ((value * registryFeeShare) / totalFeeShare));
+        vm.warp(endTime);
+
+        vm.prank(assetOwner);
+        uint256 claimedCreatorFee = asset.claimCreatorFee(signer);
+
+        assertEq(claimedCreatorFee, creatorFee);
+        assertEq(testToken.balanceOf(assetOwner), tokenBalance + claimedCreatorFee);
+    }
+
     function test_claimCreatorFee_startOfNextSubscription() public {
         uint256 tokenBalance = testToken.balanceOf(assetOwner);
         
@@ -283,28 +330,28 @@ contract AssetTest is BaseTest {
         assertEq(testToken.balanceOf(signer), tokenBalance);
     }
 
-    function test_viewSubscription() public {
+    function test_isMySubscriptionActive() public {
         test_subscribe();
         vm.prank(signer);
-        assertTrue(asset.viewMySubscription());
+        assertTrue(asset.isMySubscriptionActive());
 
         vm.prank(assetOwner);
         asset.revokeSubscription(signer);
 
         vm.prank(signer);
-        assertFalse(asset.viewMySubscription());
+        assertFalse(asset.isMySubscriptionActive());
     }
 
-    function test_viewSubscription_cancelSubscription() public {
+    function test_isMySubscriptionActive_cancelSubscription() public {
         test_subscribe();
         vm.prank(signer);
-        assertTrue(asset.viewMySubscription());
+        assertTrue(asset.isMySubscriptionActive());
 
         vm.prank(signer);
         asset.cancelSubscription();
 
         vm.prank(signer);
-        assertFalse(asset.viewMySubscription());
+        assertFalse(asset.isMySubscriptionActive());
     }
 
     function test_unauthorized() public {
@@ -312,7 +359,7 @@ contract AssetTest is BaseTest {
         vm.expectRevert(Asset.OnlyRegistryOrOwnerUnauthorizedAccount.selector);
         asset.getSubscription(signer);
         vm.expectRevert(Asset.OnlyRegistryOrOwnerUnauthorizedAccount.selector);
-        asset.viewSubscription(signer);
+        asset.isSubscriptionActive(signer);
         vm.stopPrank();
     }
 
@@ -449,6 +496,15 @@ contract AssetTest is BaseTest {
         vm.prank(signer);
         vm.expectRevert(Asset.SubscriptionNotFound.selector);
         asset.cancelSubscription();
+    }
+
+    function test_claimCreatorFee_unauthorized() public {
+        test_subscribe();
+        vm.warp(block.timestamp + DURATION);
+
+        vm.prank(UNAUTHORIZED);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, UNAUTHORIZED));
+        asset.claimCreatorFee(signer);
     }
 
     function test_claimRegistryFee_unauthorized() public {

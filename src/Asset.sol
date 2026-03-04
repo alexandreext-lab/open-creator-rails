@@ -5,6 +5,7 @@ import {IAsset} from "./IAsset.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20Permit} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IAssetRegistry} from "./IAssetRegistry.sol";
 import {ReentrancyGuard} from "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {EnumerableSet} from "lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
@@ -38,16 +39,16 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         uint256 startTime;
         uint256 endTime;
         uint256 subscriptionPrice;
+        uint256 creatorFeeShare;
+        uint256 registryFeeShare;
+        uint256 totalFeeShare;
     }
 
     error InvalidOwner();
     error InvalidTokenAddress();
     error InvalidSpender();
     error PermitFailed();
-    error SubscriptionFailed();
     error InsufficientFunds();
-    error CreatorClaimFailed();
-    error RegistryClaimFailed();
     error SubscriptionNotFound();
     error SubscriptionRevocationFailed();
     error SubscriptionCancellationFailed();
@@ -120,42 +121,26 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         return _getSubscription(msg.sender);
     }
 
-    function _viewSubscription(address user) internal view returns (bool) {
+    function _isSubscriptionActive(address user) internal view returns (bool) {
         return _getSubscription(user) > block.timestamp;
     }
 
-    function viewMySubscription() external view returns (bool) {
-        return _viewSubscription(msg.sender);
+    function isMySubscriptionActive() external view returns (bool) {
+        return _isSubscriptionActive(msg.sender);
     }
 
-    function viewSubscription(address user) external onlyRegistryOrOwner view returns (bool) {
-        return _viewSubscription(user);
+    function isSubscriptionActive(address user) external onlyRegistryOrOwner view returns (bool) {
+        return _isSubscriptionActive(user);
     }
 
     function subscribe(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external nonReentrant returns (uint256) {
 
-        if (spender != address(this)) {
-            revert InvalidSpender();
-        }
-        
-        try TOKEN_PERMIT_CONTRACT.permit(owner, address(this), value, deadline, v, r, s) {
-            
-            value -= value % subscriptionPrice;
+        _valiatePermit(owner, spender, value, deadline, v, r, s);
 
-            if (value < subscriptionPrice) {
-                revert InsufficientFunds();
-            }
+        return _subscribe(owner, value);
+    }
 
-            bool success = TOKEN_CONTRACT.transferFrom(owner, address(this), value);
-
-            if (!success) {
-                revert SubscriptionFailed();
-            }
-        }
-        catch {
-            revert PermitFailed();
-        }
-
+    function _subscribe(address owner, uint256 value) internal returns (uint256) {
         uint256 duration = value / subscriptionPrice;
 
         uint256 startTime = block.timestamp;
@@ -178,13 +163,35 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
         uint256 endTime = startTime + duration;
 
-        subscriptions[id] = Subscription({startTime: startTime, endTime: endTime, subscriptionPrice: subscriptionPrice});
+        (uint256 creatorFeeShare, uint256 registryFeeShare, uint256 totalFeeShare) = ASSET_REGISTRY.getFeeShares();
+
+        subscriptions[id] = Subscription({startTime: startTime, endTime: endTime, subscriptionPrice: subscriptionPrice, creatorFeeShare: creatorFeeShare, registryFeeShare: registryFeeShare, totalFeeShare: totalFeeShare});
 
         subscribers.add(owner);
 
         emit SubscriptionAdded(owner, startTime, endTime, nonce);
 
         return endTime;
+    }
+
+    function _valiatePermit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) internal {
+        if (spender != address(this)) {
+            revert InvalidSpender();
+        }
+        
+        try TOKEN_PERMIT_CONTRACT.permit(owner, address(this), value, deadline, v, r, s) {
+            
+            value -= value % subscriptionPrice;
+
+            if (value < subscriptionPrice) {
+                revert InsufficientFunds();
+            }
+
+            SafeERC20.safeTransferFrom(TOKEN_CONTRACT, owner, address(this), value);
+        }
+        catch {
+            revert PermitFailed();
+        }
     }
 
     function _claimable(address subscriber, uint256 claimedAt) internal view returns (uint256) {
@@ -213,7 +220,16 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
             uint256 endTime = Math.min(subscription.endTime, block.timestamp);
 
-            claimable += (endTime - startTime) * subscription.subscriptionPrice;
+            uint256 fee = (endTime - startTime) * subscription.subscriptionPrice;
+
+            uint256 registryFee = (fee * subscription.registryFeeShare) / subscription.totalFeeShare;
+
+            if (_isOwner()) {
+                claimable += (fee - registryFee);
+            }
+            else if (_isRegistry()) {
+                claimable += registryFee;
+            }
         }
 
         return claimable;
@@ -221,15 +237,9 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
     function claimCreatorFee(address subscriber) onlyOwner external nonReentrant returns (uint256 creatorFee) {
         
-        uint256 claimable = _claimable(subscriber, creatorClaimedAt[subscriber]);
+        creatorFee = _claimable(subscriber, creatorClaimedAt[subscriber]);
         
-        creatorFee = ASSET_REGISTRY.getCreatorFee(claimable);
-        
-        bool success = TOKEN_CONTRACT.transfer(owner(), creatorFee);
-
-        if (!success) {
-            revert CreatorClaimFailed();
-        }
+        SafeERC20.safeTransfer(TOKEN_CONTRACT, owner(), creatorFee);
 
         creatorClaimedAt[subscriber] = block.timestamp;
 
@@ -240,22 +250,16 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
     function claimRegistryFee(address subscriber) onlyRegistry external nonReentrant returns (uint256 registryFee) {
         
-        uint256 claimable = _claimable(subscriber, registryClaimedAt[subscriber]);
+        registryFee = _claimable(subscriber, registryClaimedAt[subscriber]);
 
-        registryFee = ASSET_REGISTRY.getRegistryFee(claimable);
-
-        bool success = TOKEN_CONTRACT.transfer(ASSET_REGISTRY.getOwner(), registryFee);
-        
-        if (!success) {
-            revert RegistryClaimFailed();
-        }
+        SafeERC20.safeTransfer(TOKEN_CONTRACT, ASSET_REGISTRY.getOwner(), registryFee);
 
         registryClaimedAt[subscriber] = block.timestamp;
 
         return registryFee;
     }
 
-    function _removeSubscription(address user) internal nonReentrant returns (bool) {
+    function _removeSubscription(address user) internal nonReentrant {
         
         if (!subscribers.contains(user)) {
             revert SubscriptionNotFound();
@@ -301,29 +305,20 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
             nonces[user] -= deleted;
         }
 
-        return returnable == 0 || TOKEN_CONTRACT.transfer(user, returnable);
+        SafeERC20.safeTransfer(TOKEN_CONTRACT, user, returnable);
     }
 
     function revokeSubscription(address user) external onlyOwner {
-        bool success = _removeSubscription(user);
-
-        if (!success) {
-            revert SubscriptionRevocationFailed();
-        }
+        _removeSubscription(user);
 
         emit SubscriptionRevoked(user);
     }
 
     function cancelSubscription() external {
-
         address user = msg.sender;
 
-        bool success = _removeSubscription(user);
-
-        if (!success) {
-            revert SubscriptionCancellationFailed();
-        }
-
+        _removeSubscription(user);
+        
         emit SubscriptionCancelled(user);
     }
 
@@ -333,6 +328,14 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
             mstore(0x20, b)
             result := keccak256(0x00, 0x40)
         }
+    }
+
+    function _isOwner() internal view returns (bool) {
+        return msg.sender == owner();
+    }
+
+    function _isRegistry() internal view returns (bool) {
+        return msg.sender == REGISTRY_ADDRESS;
     }
 
      modifier onlyRegistry() {

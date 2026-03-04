@@ -26,13 +26,13 @@ interface IAssetRegistry {
     /// @notice Checks whether the caller has an active subscription for the given asset.
     /// @param _assetId Asset identifier.
     /// @return True if the caller's subscription for that asset is active.
-    function viewMySubscription(bytes32 _assetId) external view returns (bool);
+    function isMySubscriptionActive(bytes32 _assetId) external view returns (bool);
 
     /// @notice Checks whether a user has an active subscription for the given asset, restricted to registry owner.
     /// @param _assetId Asset identifier.
     /// @param _user User address.
     /// @return True if the user's subscription for that asset is active.
-    function viewSubscription(bytes32 _assetId, address _user) external view returns (bool);
+    function isSubscriptionActive(bytes32 _assetId, address _user) external view returns (bool);
 
     /// @notice Returns the caller's subscription expiry timestamp for the given asset.
     /// @param _assetId Asset identifier.
@@ -62,6 +62,24 @@ interface IAssetRegistry {
     /// @param _s Signature s.
     /// @return Subscription expiry in Unix timestamp.
     function subscribe(bytes32 _assetId, address _owner, address _spender, uint256 _value, uint256 _deadline, uint8 _v, bytes32 _r, bytes32 _s) external returns (uint256);
+
+    /// @notice Returns the creator fee share.
+    /// @return creatorFeeShare The creator fee share.
+    function getCreatorFeeShare() external view returns (uint256);
+
+    /// @notice Returns the registry fee share.
+    /// @return registryFeeShare The registry fee share.
+    function getRegistryFeeShare() external view returns (uint256);
+
+    /// @notice Returns the total fee share.
+    /// @return totalFeeShare The total fee share.
+    function getTotalFeeShare() external view returns (uint256);
+
+    /// @notice Returns the creator and registry fee shares.
+    /// @return creatorFeeShare The creator fee share.
+    /// @return registryFeeShare The registry fee share.
+    /// @return totalFeeShare The total fee share.
+    function getFeeShares() external view returns (uint256 creatorFeeShare, uint256 registryFeeShare, uint256 totalFeeShare);
 
     /// @notice Updates the creator's share of subscription fees. Callable only by registry owner.
     /// @param _creatorFeeShare New creator fee share (used with totalFeeShare for percentage).

@@ -187,7 +187,7 @@ All external functions for the registry and asset contracts, for use with JSON-R
 
 ---
 
-**viewMySubscription** : Checks whether the caller has an active subscription for the given asset.
+**isMySubscriptionActive** : Checks whether the caller has an active subscription for the given asset.
 - Type: read
 - Permission: none
 - Parameters:
@@ -198,7 +198,7 @@ All external functions for the registry and asset contracts, for use with JSON-R
 
 ---
 
-**viewSubscription** : Checks whether a user has an active subscription for the given asset.
+**isSubscriptionActive** : Checks whether a user has an active subscription for the given asset.
 - Type: read
 - Permission: `onlyOwner`
 - Parameters:
@@ -259,6 +259,48 @@ All external functions for the registry and asset contracts, for use with JSON-R
   - `bytes32 _s` : Signature s.
 - Returns:
   - `uint256` : Subscription expiry in Unix timestamp.
+
+
+---
+
+**getCreatorFeeShare** : Returns the creator fee share.
+- Type: read
+- Permission: none
+- Parameters: none
+- Returns:
+  - `uint256` : Creator fee share.
+
+
+---
+
+**getRegistryFeeShare** : Returns the registry fee share.
+- Type: read
+- Permission: none
+- Parameters: none
+- Returns:
+  - `uint256` : Registry fee share.
+
+
+---
+
+**getTotalFeeShare** : Returns the total fee share.
+- Type: read
+- Permission: none
+- Parameters: none
+- Returns:
+  - `uint256` : Total fee share.
+
+
+---
+
+**getFeeShares** : Returns the creator and registry fee shares.
+- Type: read
+- Permission: none
+- Parameters: none
+- Returns:
+  - `uint256 creatorFeeShare` : Creator fee share.
+  - `uint256 registryFeeShare` : Registry fee share.
+  - `uint256 totalFeeShare` : Total fee share.
 
 
 ---
@@ -415,7 +457,7 @@ All external functions for the registry and asset contracts, for use with JSON-R
 
 ---
 
-**viewMySubscription** : Checks whether the caller has an active subscription (expiry > block.timestamp).
+**isMySubscriptionActive** : Checks whether the caller has an active subscription (expiry > block.timestamp).
 - Type: read
 - Permission: none
 - Parameters: none
@@ -425,7 +467,7 @@ All external functions for the registry and asset contracts, for use with JSON-R
 
 ---
 
-**viewSubscription** : Checks whether a user has an active subscription.
+**isSubscriptionActive** : Checks whether a user has an active subscription.
 - Type: read
 - Permission: `onlyRegistryOrOwner`
 - Parameters:
