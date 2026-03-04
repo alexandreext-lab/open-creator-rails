@@ -263,6 +263,48 @@ All external functions for the registry and asset contracts, for use with JSON-R
 
 ---
 
+**getCreatorFeeShare** : Returns the creator fee share.
+- Type: read
+- Permission: none
+- Parameters: none
+- Returns:
+  - `uint256` : Creator fee share.
+
+
+---
+
+**getRegistryFeeShare** : Returns the registry fee share.
+- Type: read
+- Permission: none
+- Parameters: none
+- Returns:
+  - `uint256` : Registry fee share.
+
+
+---
+
+**getTotalFeeShare** : Returns the total fee share.
+- Type: read
+- Permission: none
+- Parameters: none
+- Returns:
+  - `uint256` : Total fee share.
+
+
+---
+
+**getFeeShares** : Returns the creator and registry fee shares.
+- Type: read
+- Permission: none
+- Parameters: none
+- Returns:
+  - `uint256 creatorFeeShare` : Creator fee share.
+  - `uint256 registryFeeShare` : Registry fee share.
+  - `uint256 totalFeeShare` : Total fee share.
+
+
+---
+
 **updateCreatorFeeShare** : Updates the creator's share of subscription fees.
 - Type: write
 - Permission: `onlyOwner`
