@@ -6,12 +6,12 @@ sequenceDiagram
     participant Seed Client
     participant Seed Backend
     Note over Seed Backend: Registry Owner
-    participant Asset Regsitry
+    participant Asset Registry
 Society Owner->>+Seed Client: Gate Society
 Seed Client->>+Seed Backend: Gate Society
-Seed Backend->>+Asset Regsitry: createAsset(societyId, subscriptionPrice, token, owner) onlyOwner // owner == Society Owner
-Note over Seed Backend, Asset Regsitry: Indexer will record this event.
-Asset Regsitry-->>-Seed Backend: {address} // Asset Contract Address
+Seed Backend->>+Asset Registry: createAsset(societyId, subscriptionPrice, token, owner) onlyOwner // owner == Society Owner
+Note over Seed Backend, Asset Registry: Indexer will record this event.
+Asset Registry-->>-Seed Backend: {address} // Asset Contract Address
 Seed Backend-->>-Seed Client: {address}
 Seed Client-->>-Society Owner: Share Join Link // https://seed.game/society/{id}/join
 ```
