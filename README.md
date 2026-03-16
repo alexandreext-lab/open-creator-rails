@@ -15,7 +15,7 @@ See the initial [MVP Architecture and Design](docs/mvp-design-and-architecture.m
 - [Node.js](https://nodejs.org/) (v22+)
 - [pnpm](https://pnpm.io/)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation) (forge, cast, anvil)
-- [jq](https://jqlang.org/) (optional) — for script usage (e.g. `get_address` in `script/utils.sh` reads `registries_<chain_id>.json` via jq)
+- [jq](https://jqlang.org/) (optional) — for script usage (e.g. `get_address` in `./scripts/utils.sh` reads `registries_<chain_id>.json` via jq)
 
 ### Setup
 
@@ -64,7 +64,7 @@ See the initial [MVP Architecture and Design](docs/mvp-design-and-architecture.m
 Deploy an AssetRegistry with the specified fee shares:
 
 ```bash
-./script/deployRegistry.sh <creator_fee_share> <registry_fee_share>
+./scripts/deployRegistry.sh <creator_fee_share> <registry_fee_share>
 ```
 
 | Input | Description |
@@ -75,7 +75,7 @@ Deploy an AssetRegistry with the specified fee shares:
 Example:
 
 ```bash
-./script/deployRegistry.sh 80 20
+./scripts/deployRegistry.sh 80 20
 ```
 
 Deployments are recorded in `registries_<chain_id>.json`, where `chain_id` is the chain ID of the network from `RPC_URL` (e.g. `registries_11155111.json` for Sepolia, `registries_84532.json` for Base Sepolia). The file is an array of registry objects with `address`, `creatorFeeShare`, `registryFeeShare`, `owner`, and `assets`.
@@ -85,7 +85,7 @@ Deployments are recorded in `registries_<chain_id>.json`, where `chain_id` is th
 Create an asset in a registry (registry owner only):
 
 ```bash
-./script/createAsset.sh <registry_index> <asset_id> <subscription_price> <token_address> <owner>
+./scripts/createAsset.sh <registry_index> <asset_id> <subscription_price> <token_address> <owner>
 ```
 
 | Input | Description |
@@ -99,7 +99,7 @@ Create an asset in a registry (registry owner only):
 Example:
 
 ```bash
-./script/createAsset.sh 0 "default_asset_id" 4 0x1234... 0xabcd...
+./scripts/createAsset.sh 0 "default_asset_id" 4 0x1234... 0xabcd...
 ```
 
 The token address must implement ERC-2612 / IERC20Permit, as subscription payments use gasless permit approvals.
@@ -108,23 +108,24 @@ New assets are appended to the `assets` array of the corresponding registry in `
 
 ### Subscribe
 
-Subscribe to an asset using ERC-2612 permit (gasless approval). The subscriber must hold enough tokens; the script signs a permit and sends the subscribe transaction.
+Subscribe to an asset using ERC-2612 permit (gasless approval). The payer signs the permit and pays with tokens; the subscription is associated with a **subscriber** identity (a `bytes32` hash, e.g. `keccak256(abi.encodePacked(subscriber_id))`). The payer and the subscriber can be the same or different (e.g. "pay for someone else").
 
 ```bash
-./script/subscribe.sh <registry_index> <asset_id> <value> <subscriber_private_key>
+./scripts/subscribe.sh <registry_index> <asset_id> <subscriber_id> <value> <payer_private_key>
 ```
 
 | Input | Description |
 |-------|--------------|
 | `registry_index` | Zero-based index of the registry in `registries_<chain_id>.json`. |
 | `asset_id` | Human-readable asset identifier (same string used when creating the asset). The script hashes it with keccak256 for the on-chain call. |
+| `subscriber_id` | Human-readable subscriber identity (e.g. user id, wallet-derived id). The script hashes it with keccak256 to get the `bytes32` subscriber used on-chain. Access and subscription queries use this identity. |
 | `value` | Payment amount in the token's smallest unit. Must be a multiple of the asset's subscription price; excess is rounded down. |
-| `subscriber_private_key` | Private key of the subscriber. Used to sign the permit and send the transaction; the subscriber pays gas and provides tokens. |
+| `payer_private_key` | Private key of the token owner. Used to sign the permit and send the transaction; this address pays gas and provides tokens. Can be the same as or different from the subscriber identity. |
 
 Example:
 
 ```bash
-./script/subscribe.sh 0 "default_asset_id" 10368000 0x1b97...
+./scripts/subscribe.sh 0 "default_asset_id" "user_123" 10368000 0x1b97...
 ```
 
 ### Set Subscription Price
@@ -132,7 +133,7 @@ Example:
 Update the subscription price for an asset (asset owner only):
 
 ```bash
-./script/setSubscriptionPrice.sh <registry_index> <asset_id> <new_subscription_price> <asset_owner_private_key>
+./scripts/setSubscriptionPrice.sh <registry_index> <asset_id> <new_subscription_price> <asset_owner_private_key>
 ```
 
 | Input | Description |
@@ -145,7 +146,7 @@ Update the subscription price for an asset (asset owner only):
 Example:
 
 ```bash
-./script/setSubscriptionPrice.sh 0 "default_asset_id" 8 0x1b97...
+./scripts/setSubscriptionPrice.sh 0 "default_asset_id" 8 0x1b97...
 ```
 
 The script updates the `subscriptionPrice` for the asset in `registries_<chain_id>.json`.
@@ -155,7 +156,7 @@ The script updates the `subscriptionPrice` for the asset in `registries_<chain_i
 Transfer ownership of an asset to a new address (asset owner only). The asset owner is the address that can claim the creator fee share of subscription payments.
 
 ```bash
-./script/transferAssetOwnership.sh <registry_index> <asset_id> <asset_owner_private_key> <new_owner>
+./scripts/transferAssetOwnership.sh <registry_index> <asset_id> <asset_owner_private_key> <new_owner>
 ```
 
 | Input | Description |
@@ -168,7 +169,7 @@ Transfer ownership of an asset to a new address (asset owner only). The asset ow
 Example:
 
 ```bash
-./script/transferAssetOwnership.sh 0 "default_asset_id" 0x1b97... 0xabcd...
+./scripts/transferAssetOwnership.sh 0 "default_asset_id" 0x1b97... 0xabcd...
 ```
 
 The script updates the `owner` for the asset in `registries_<chain_id>.json`.
@@ -182,13 +183,13 @@ The script updates the `owner` for the asset in `registries_<chain_id>.json`.
 > **Deploy a test token** (records the address in `token_addresses.json` for the current chain):
 >
 > ```bash
-> ./script/deployTestToken.sh
+> ./scripts/deployTestToken.sh
 > ```
 >
 > **Mint test tokens** to an address (uses the token in `token_addresses.json` for the current chain):
 >
 > ```bash
-> ./script/mintTestToken.sh <to> <amount>
+> ./scripts/mintTestToken.sh <to> <amount>
 > ```
 >
 > | Input | Description |
@@ -242,46 +243,24 @@ All external functions for the registry and asset contracts, for use with JSON-R
 
 ---
 
-**isMySubscriptionActive** : Checks whether the caller has an active subscription for the given asset.
+**isSubscriptionActive** : Checks whether a subscriber has an active subscription for the given asset.
 - Type: read
 - Permission: none
 - Parameters:
   - `bytes32 _assetId` : Asset identifier.
+  - `bytes32 _subscriber` : Hash of the subscriber identity (e.g. keccak256 of a unique id).
 - Returns:
-  - `bool` : True if the caller's subscription is active.
+  - `bool` : True if the subscriber's subscription is active.
 
 
 ---
 
-**isSubscriptionActive** : Checks whether a user has an active subscription for the given asset.
-- Type: read
-- Permission: `onlyOwner`
-- Parameters:
-  - `bytes32 _assetId` : Asset identifier.
-  - `address _user` : User address.
-- Returns:
-  - `bool` : True if the user's subscription is active.
-
-
----
-
-**getMySubscription** : Returns the caller's subscription expiry timestamp for the given asset.
+**getSubscription** : Returns the subscription expiry timestamp for the given subscriber for the given asset.
 - Type: read
 - Permission: none
 - Parameters:
   - `bytes32 _assetId` : Asset identifier.
-- Returns:
-  - `uint256` : Expiry timestamp; 0 if no subscription.
-
-
----
-
-**getSubscription** : Returns the subscription expiry timestamp for the given user for the given asset.
-- Type: read
-- Permission: `onlyOwner`
-- Parameters:
-  - `bytes32 _assetId` : Asset identifier.
-  - `address _user` : User address.
+  - `bytes32 _subscriber` : Hash of the subscriber identity.
 - Returns:
   - `uint256` : Expiry timestamp in seconds; 0 if no subscription.
 
@@ -300,12 +279,13 @@ All external functions for the registry and asset contracts, for use with JSON-R
 
 ---
 
-**subscribe** : Subscribes the given owner to the asset using ERC-2612 permit; forwards to the asset contract.
+**subscribe** : Subscribes a subscriber to the asset using ERC-2612 permit; forwards to the asset contract. The permit is signed by the token owner (payer); the subscription is attributed to `_subscriber` (payer and subscriber can differ).
 - Type: write
 - Permission: none
 - Parameters:
   - `bytes32 _assetId` : Asset identifier.
-  - `address _owner` : Token owner and subscription beneficiary.
+  - `bytes32 _subscriber` : Hash of the subscriber identity (who gets the access).
+  - `address _owner` : Token owner; signs the permit and pays. Can be the same or different from the subscriber (e.g. gifting).
   - `address _spender` : Must be the asset contract address for the permit.
   - `uint256 _value` : Permit allowance / payment amount.
   - `uint256 _deadline` : Permit signature expiry.
@@ -419,7 +399,7 @@ All external functions for the registry and asset contracts, for use with JSON-R
 - Permission: `onlyOwner`
 - Parameters:
   - `bytes32 _assetId` : Asset identifier.
-  - `address _subscriber` : Address whose registry fee to claim.
+  - `bytes32 _subscriber` : Hash of the subscriber identity whose registry fee to claim.
 - Returns:
   - `uint256` : Amount of registry fee claimed.
 
@@ -491,53 +471,34 @@ All external functions for the registry and asset contracts, for use with JSON-R
 
 ---
 
-**getMySubscription** : Returns the caller's current subscription expiry timestamp.
+**getSubscription** : Returns a subscriber's subscription expiry timestamp.
 - Type: read
 - Permission: none
-- Parameters: none
-- Returns:
-  - `uint256` : Expiry timestamp in seconds; 0 if no active subscription.
-
-
----
-
-**getSubscription** : Returns a user's subscription expiry timestamp.
-- Type: read
-- Permission: `onlyRegistryOrOwner`
 - Parameters:
-  - `address user` : Address to query.
+  - `bytes32 subscriber` : Hash of the subscriber identity to query.
 - Returns:
-  - `uint256` : Expiry timestamp; 0 if no subscription.
+  - `uint256` : Expiry timestamp in seconds; 0 if no subscription.
 
 
 ---
 
-**isMySubscriptionActive** : Checks whether the caller has an active subscription (expiry > block.timestamp).
+**isSubscriptionActive** : Checks whether a subscriber has an active subscription (expiry > block.timestamp).
 - Type: read
 - Permission: none
-- Parameters: none
-- Returns:
-  - `bool` : True if the caller's subscription is active.
-
-
----
-
-**isSubscriptionActive** : Checks whether a user has an active subscription.
-- Type: read
-- Permission: `onlyRegistryOrOwner`
 - Parameters:
-  - `address user` : Address to check.
+  - `bytes32 subscriber` : Hash of the subscriber identity to check.
 - Returns:
-  - `bool` : True if the user's subscription is active.
+  - `bool` : True if the subscriber's subscription is active.
 
 
 ---
 
-**subscribe** : Subscribes an owner using ERC-2612 permit: owner signs permit, then payment is pulled and subscription extended.
+**subscribe** : Subscribes a subscriber using ERC-2612 permit: owner (payer) signs permit, then payment is pulled and subscription is attributed to the given subscriber. Payer and subscriber can differ (e.g. pay for someone else).
 - Type: write
 - Permission: none
 - Parameters:
-  - `address owner` : Token owner and subscription beneficiary.
+  - `bytes32 subscriber` : Hash of the subscriber identity (who gets the access).
+  - `address owner` : Token owner; signs the permit and pays.
   - `address spender` : Must be this asset contract for the permit to be accepted.
   - `uint256 value` : Permit allowance / payment amount (will be rounded down to subscription price units).
   - `uint256 deadline` : Permit signature expiry.
@@ -550,42 +511,43 @@ All external functions for the registry and asset contracts, for use with JSON-R
 
 ---
 
-**claimCreatorFee** : Claims the creator fee for a user.
+**claimCreatorFee** : Claims the creator fee for a subscriber.
 - Type: write
 - Permission: `onlyOwner`
 - Parameters:
-  - `address user` : Address whose creator fee to claim.
+  - `bytes32 subscriber` : Hash of the subscriber identity whose creator fee to claim.
 - Returns:
   - `uint256` : Amount of creator fee claimed.
 
 
 ---
 
-**claimRegistryFee** : Claims the registry fee for a user.
+**claimRegistryFee** : Claims the registry fee for a subscriber. Callable only by the registry contract.
 - Type: write
-- Permission: `onlyRegistryOwner`
+- Permission: `onlyRegistry`
 - Parameters:
-  - `address user` : Address whose registry fee to claim.
+  - `bytes32 subscriber` : Hash of the subscriber identity whose registry fee to claim.
 - Returns:
   - `uint256` : Amount of registry fee claimed.
 
 
 ---
 
-**revokeSubscription** : Revokes a user's subscription.
+**revokeSubscription** : Revokes a subscriber's subscription (e.g. all entries for that subscriber). Refunds unearned portion to each subscription's payer.
 - Type: write
 - Permission: `onlyOwner`
 - Parameters:
-  - `address user` : Address whose subscription to revoke.
+  - `bytes32 subscriber` : Subscriber whose subscription to revoke.
 - Returns: void
 
 
 ---
 
-**cancelSubscription** : Cancels the caller's subscription.
+**cancelSubscription** : Cancels subscription(s) for the given subscriber. Caller must be the asset owner or the payer (owner) of each subscription being cancelled; refunds unearned portion to the payer.
 - Type: write
 - Permission: none
-- Parameters: none
+- Parameters:
+  - `bytes32 subscriber` : Subscriber whose subscription to cancel (only entries owned by msg.sender or all if asset owner).
 - Returns: void
 
 ---
@@ -629,7 +591,7 @@ All events emitted by the registry and asset contracts. Use for indexing, loggin
 **RegistryFeeClaimed** : Emitted when the registry fee for a subscriber is claimed.
 - Contract: `AssetRegistry`
 - Parameters:
-  - `address indexed user` : Subscriber whose registry fee was claimed.
+  - `bytes32 indexed subscriber` : Subscriber whose registry fee was claimed.
   - `uint256 amount` : Amount of registry fee claimed.
 
 
@@ -639,21 +601,22 @@ All events emitted by the registry and asset contracts. Use for indexing, loggin
 
 ---
 
-**SubscriptionAdded** : Emitted when a user subscribes or extends their subscription.
+**SubscriptionAdded** : Emitted when a subscriber subscribes or extends their subscription.
 - Contract: `Asset`
 - Parameters:
-  - `address indexed user` : Subscriber address.
+  - `bytes32 indexed subscriber` : Subscriber identity (hash).
   - `uint256 indexed startTime` : Subscription start time (Unix timestamp).
   - `uint256 indexed endTime` : Subscription expiry time (Unix timestamp).
   - `uint256 nonce` : Subscription nonce.
+  - `address owner` : Token owner (payer) for this subscription.
 
 
 ---
 
-**CreatorFeeClaimed** : Emitted when the creator fee for a user is claimed.
+**CreatorFeeClaimed** : Emitted when the creator fee for a subscriber is claimed.
 - Contract: `Asset`
 - Parameters:
-  - `address indexed user` : User whose creator fee was claimed.
+  - `bytes32 indexed subscriber` : Subscriber whose creator fee was claimed.
   - `uint256 amount` : Amount of creator fee claimed.
 
 
@@ -667,15 +630,15 @@ All events emitted by the registry and asset contracts. Use for indexing, loggin
 
 ---
 
-**SubscriptionRevoked** : Emitted when a user's subscription is revoked by the asset owner.
+**SubscriptionRevoked** : Emitted when a subscriber's subscription is revoked by the asset owner.
 - Contract: `Asset`
 - Parameters:
-  - `address indexed user` : User whose subscription was revoked.
+  - `bytes32 indexed subscriber` : Subscriber whose subscription was revoked.
 
 
 ---
 
-**SubscriptionCancelled** : Emitted when a user cancels their own subscription.
+**SubscriptionCancelled** : Emitted when a subscriber's subscription is cancelled (by the payer or asset owner).
 - Contract: `Asset`
 - Parameters:
-  - `address indexed user` : User who cancelled their subscription.
+  - `bytes32 indexed subscriber` : Subscriber whose subscription was cancelled.
