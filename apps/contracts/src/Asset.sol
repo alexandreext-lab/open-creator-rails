@@ -188,7 +188,13 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         
         uint256 claimable = 0;
 
-        for (uint256 i = 0; i < nonce + 1; i++) {
+        bool isOwner = _isOwner();
+
+        bool isRegistry = _isRegistry();
+
+        uint256 count = nonce + 1;
+
+        for (uint256 i = 0; i < count; i++) {
             
             bytes32 id = _hash(subscriber, i);
             
@@ -212,10 +218,10 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
             uint256 registryFee = (fee * subscription.registryFeeShare) / subscription.totalFeeShare;
 
-            if (_isOwner()) {
+            if (isOwner) {
                 claimable += (fee - registryFee);
             }
-            else if (_isRegistry()) {
+            else if (isRegistry) {
                 claimable += registryFee;
             }
         }
@@ -247,7 +253,7 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         return registryFee;
     }
 
-    function _removeSubscription(bytes32 subscriber) internal nonReentrant {
+    function _removeSubscription(bytes32 subscriber) internal {
         
         if (!subscribers.contains(subscriber)) {
             revert SubscriptionNotFound();
@@ -257,21 +263,29 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
         uint256 deleted = 0;
 
-        for (uint256 i = 0; i < nonce + 1; i++) {
+        bool isOwner = _isOwner();
+
+        uint256 count = nonce + 1;
+
+        address caller = msg.sender;
+
+        uint256 timestamp = block.timestamp;
+
+        for (uint256 i = 0; i < count; i++) {
             
             bytes32 id = _hash(subscriber, i);
             
             Subscription memory subscription = subscriptions[id];
 
             // If caller isn't the assetowner or subscription payer, continue to the next subscription
-            if (!_isOwner() && subscription.payer != msg.sender) {
+            if (!isOwner && subscription.payer != caller) {
                 continue;
             }
 
             uint256 returnable = 0;
 
             // If the subscription has not started yet, delete it, add the returnable amount to the returnable total and update the nonce
-            if (subscription.startTime >= block.timestamp) {
+            if (subscription.startTime >= timestamp) {
                 
                 returnable = (subscription.endTime - subscription.startTime) * subscription.subscriptionPrice;
 
@@ -281,10 +295,10 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
             }
 
             // If the subscription is active, add the returnable amount to the returnable total and update the subscription
-            else if (subscription.endTime > block.timestamp) {
-               returnable = (subscription.endTime - block.timestamp) * subscription.subscriptionPrice;
+            else if (subscription.endTime > timestamp) {
+               returnable = (subscription.endTime - timestamp) * subscription.subscriptionPrice;
 
-               subscriptions[id].endTime = block.timestamp;
+               subscriptions[id].endTime = timestamp;
             }
 
             if (returnable != 0) {
@@ -293,23 +307,23 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         }
 
         // If the user has deleted all of their subscriptions, delete the nonce and remove the user from the subscribers set
-        if (deleted == nonce + 1) {
+        if (deleted == count) {
             delete nonces[subscriber];    
             subscribers.remove(subscriber);
         }
         // If the user has subscriptions left, decrement the nonce by the number of deleted subscriptions
-        else{
+        else if (deleted != 0) {
             nonces[subscriber] -= deleted;
         }
     }
 
-    function revokeSubscription(bytes32 subscriber) external onlyOwner {
+    function revokeSubscription(bytes32 subscriber) external onlyOwner nonReentrant {
         _removeSubscription(subscriber);
 
         emit SubscriptionRevoked(subscriber);
     }
 
-    function cancelSubscription(bytes32 subscriber) external {
+    function cancelSubscription(bytes32 subscriber) external nonReentrant {
         _removeSubscription(subscriber);
         
         emit SubscriptionCancelled(subscriber);
