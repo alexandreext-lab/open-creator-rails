@@ -38,7 +38,7 @@ interface IAsset {
 
     /// @notice Subscribes an owner using ERC-2612 permit: owner signs permit, then payment is pulled and subscription extended.
     /// @param subscriber Hash of the subscriber identity to subscribe.
-    /// @param owner Token owner and subscription cancellation/revoke beneficiary.
+    /// @param payer Subscription payer and subscription refund beneficiary.
     /// @param spender Must be this asset contract for the permit to be accepted.
     /// @param value Permit allowance / payment amount (will be rounded down to subscription price units).
     /// @param deadline Permit signature expiry.
@@ -48,7 +48,7 @@ interface IAsset {
     /// @return Subscription expiry in Unix timestamp.
     function subscribe(
         bytes32 subscriber,
-        address owner,
+        address payer,
         address spender,
         uint256 value,
         uint256 deadline,

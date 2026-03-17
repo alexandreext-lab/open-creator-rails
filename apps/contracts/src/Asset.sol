@@ -42,7 +42,7 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         uint256 creatorFeeShare;
         uint256 registryFeeShare;
         uint256 totalFeeShare;
-        address owner;
+        address payer;
     }
 
     error InvalidOwner();
@@ -55,7 +55,7 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
     error SubscriptionCancellationFailed();
     error OnlyRegistryUnauthorizedAccount();
 
-    event SubscriptionAdded(bytes32 indexed subscriber, uint256 indexed startTime, uint256 indexed endTime, uint256 nonce, address owner);
+    event SubscriptionAdded(bytes32 indexed subscriber, uint256 indexed startTime, uint256 indexed endTime, uint256 nonce, address payer);
     event CreatorFeeClaimed(bytes32 indexed subscriber, uint256 amount);
     event SubscriptionPriceUpdated(uint256 newSubscriptionPrice);
     event SubscriptionRevoked(bytes32 indexed subscriber);
@@ -121,14 +121,14 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
         return _getSubscription(subscriber) > block.timestamp;
     }
 
-    function subscribe(bytes32 subscriber, address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external nonReentrant returns (uint256) {
+    function subscribe(bytes32 subscriber, address payer, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external nonReentrant returns (uint256) {
 
-        _validatePermit(owner, spender, value, deadline, v, r, s);
+        _validatePermit(payer, spender, value, deadline, v, r, s);
 
-        return _subscribe(subscriber, owner, value);
+        return _subscribe(subscriber, payer, value);
     }
 
-    function _subscribe(bytes32 subscriber, address owner, uint256 value) internal returns (uint256) {
+    function _subscribe(bytes32 subscriber, address payer, uint256 value) internal returns (uint256) {
         uint256 duration = value / subscriptionPrice;
 
         uint256 startTime = block.timestamp;
@@ -153,11 +153,11 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
 
         (uint256 creatorFeeShare, uint256 registryFeeShare, uint256 totalFeeShare) = ASSET_REGISTRY.getFeeShares();
 
-        subscriptions[id] = Subscription({startTime: startTime, endTime: endTime, subscriptionPrice: subscriptionPrice, creatorFeeShare: creatorFeeShare, registryFeeShare: registryFeeShare, totalFeeShare: totalFeeShare, owner: owner});
+        subscriptions[id] = Subscription({startTime: startTime, endTime: endTime, subscriptionPrice: subscriptionPrice, creatorFeeShare: creatorFeeShare, registryFeeShare: registryFeeShare, totalFeeShare: totalFeeShare, payer: payer});
 
         subscribers.add(subscriber);
 
-        emit SubscriptionAdded(subscriber, startTime, endTime, nonce, owner);
+        emit SubscriptionAdded(subscriber, startTime, endTime, nonce, payer);
 
         return endTime;
     }
@@ -263,8 +263,8 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
             
             Subscription memory subscription = subscriptions[id];
 
-            // If caller isn't the assetowner or subscription owner, continue to the next subscription
-            if (!_isOwner() && subscription.owner != msg.sender) {
+            // If caller isn't the assetowner or subscription payer, continue to the next subscription
+            if (!_isOwner() && subscription.payer != msg.sender) {
                 continue;
             }
 
@@ -288,7 +288,7 @@ contract Asset is Ownable, ReentrancyGuard, IAsset {
             }
 
             if (returnable != 0) {
-                SafeERC20.safeTransfer(TOKEN_CONTRACT, subscription.owner, returnable);
+                SafeERC20.safeTransfer(TOKEN_CONTRACT, subscription.payer, returnable);
             }
         }
 
