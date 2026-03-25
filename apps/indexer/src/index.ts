@@ -14,11 +14,22 @@ import {
   Asset_SubscriptionPriceUpdated,
   Asset_OwnershipTransferred
 } from "../ponder.schema";
+import { get } from "http";
 
 // Helper function to generate robust IDs for event history rows
 const getEventId = (event: any, chainId: number) => {
   return `${chainId}-${event.transaction.hash}-${event.log.logIndex}`;
 };
+
+// Helper function to generate Asset Entity IDs
+const getAssetEntityId = (chainId: number, assetAddress: string) => {
+  return `${chainId}_${assetAddress}`;
+};
+
+// Helper function to generate Subscription IDs
+const getSubscriptionId = (chainId: number, assetAddress: string, subscriber: string) => {
+  return `${chainId}_${assetAddress}_${subscriber}`;
+}
 
 // ============================================================================
 // AssetRegistry Handlers
@@ -30,9 +41,11 @@ ponder.on("AssetRegistry:AssetCreated", async ({ event, context }) => {
   const owner = event.args.owner.toLowerCase();
   const tokenAddress = event.args.tokenAddress.toLowerCase();
 
+  const assetEntityId = getAssetEntityId(chainId, assetAddress);
+
   // 1. Create the persistent Asset Entity
   await context.db.insert(AssetEntity).values({
-    id: `${chainId}_${assetAddress}`,
+    id: assetEntityId,
     chainId: chainId,
     assetId: event.args.assetId,
     address: assetAddress,
@@ -104,8 +117,8 @@ ponder.on("Asset:SubscriptionAdded", async ({ event, context }) => {
   const subscriber = event.args.subscriber;
   const payer = event.args.payer.toLowerCase();
 
-  const assetEntityId = `${chainId}_${assetAddress}`;
-  const id = `${assetEntityId}_${subscriber}`;
+  const assetEntityId = getAssetEntityId(chainId, assetAddress);
+  const id = getSubscriptionId(chainId, assetAddress, subscriber);
 
   // Fetch existing subscription to preserve continuity of startTime
   const existingSub = await context.db.find(Subscription, { id });
