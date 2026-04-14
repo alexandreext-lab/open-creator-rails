@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\.\\(sol|rake|js|ts\\)$|Rakefile|deploy\")",
+      "Bash(ls .env*)",
+      "Bash(./scripts/deployRegistry.sh 20)",
+      "Bash(source .env)",
+      "Bash(forge create:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)"
+    ]
+  }
+}
