@@ -22,13 +22,16 @@ export default createConfig({
     ...(process.env.PONDER_RPC_URL_11155111 ? {
       sepolia: {
         id: 11155111,
-        rpc: process.env.PONDER_RPC_URL_11155111,
+        // TODO: add a second Alchemy app as fallback — each app has its own rate limit bucket (two keys from the same app share limits)
+        rpc: [process.env.PONDER_RPC_URL_11155111] as string[],
+        pollingInterval: 4_000,
       }
     } : {}),
     ...(process.env.PONDER_RPC_URL_31337 ? {
       local: {
         id: 31337,
         rpc: process.env.PONDER_RPC_URL_31337,
+        pollingInterval: 1_000,
       }
     } : {}),
   },
